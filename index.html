@@ -96,7 +96,7 @@
 
     .input-row {
       display: grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns: 1fr auto auto;
       align-items: center;
       border: 1px solid var(--line);
       background: var(--surface);
@@ -195,9 +195,21 @@
       line-height: 1.6;
     }
 
+    .tax-note {
+      padding: 0 14px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
     .tax-status {
       text-align: right;
       font-weight: 700;
+    }
+
+    .custom-base-field[hidden] {
+      display: none;
     }
 
     .controls {
@@ -464,6 +476,11 @@
       .tax-status {
         text-align: left;
       }
+
+      .tax-note {
+        grid-column: 1 / -1;
+        padding: 0 14px 10px;
+      }
     }
   </style>
 </head>
@@ -481,6 +498,7 @@
           <div class="input-row">
             <input id="originalPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="例: 5980">
             <span class="suffix">円</span>
+            <span class="tax-note" id="taxNote" hidden></span>
           </div>
           <div class="tax-actions">
             <p class="hint">税抜き価格を入力した場合は、税込みボタンで10%加算できます。</p>
@@ -489,7 +507,6 @@
               <button class="tax-button" type="button" id="restoreTaxButton" hidden>元値に戻す</button>
             </div>
           </div>
-          <p class="tax-status" id="taxStatus"></p>
         </div>
 
         <div class="field">
@@ -505,9 +522,18 @@
               <option value="70">70%オフ</option>
               <option value="80">80%オフ</option>
               <option value="90">90%オフ</option>
+              <option value="custom">その他</option>
             </select>
           </div>
           <p class="hint">右の一覧の行を押しても選択できます。</p>
+        </div>
+
+        <div class="field custom-base-field" id="customBaseField" hidden>
+          <label for="customBaseDiscount">その他の店頭表示オフ率</label>
+          <div class="input-row">
+            <input id="customBaseDiscount" type="number" inputmode="decimal" min="0" max="100" step="0.1" placeholder="例: 25">
+            <span class="suffix">%オフ</span>
+          </div>
         </div>
 
         <div class="field">
@@ -576,7 +602,9 @@
     const customDiscountInput = document.querySelector("#customDiscount");
     const taxButton = document.querySelector("#taxButton");
     const restoreTaxButton = document.querySelector("#restoreTaxButton");
-    const taxStatus = document.querySelector("#taxStatus");
+    const taxNote = document.querySelector("#taxNote");
+    const customBaseField = document.querySelector("#customBaseField");
+    const customBaseDiscountInput = document.querySelector("#customBaseDiscount");
     const customResult = document.querySelector("#customResult");
     const customLabel = document.querySelector("#customLabel");
     const basePriceResult = document.querySelector("#basePriceResult");
@@ -620,8 +648,9 @@
       taxButton.classList.toggle("converted", converted);
       taxButton.textContent = converted ? "税込み" : "税込みにする";
       restoreTaxButton.hidden = !converted;
-      taxStatus.textContent = converted && originalTaxExcludedPrice !== null
-        ? `税抜き ¥${formatYen(originalTaxExcludedPrice)} を税込みに変換済み`
+      taxNote.hidden = !(converted && originalTaxExcludedPrice !== null);
+      taxNote.textContent = converted && originalTaxExcludedPrice !== null
+        ? `（税抜き ¥${formatYen(originalTaxExcludedPrice)}）`
         : "";
     }
 
@@ -630,9 +659,19 @@
       setTaxButtonConverted(false);
     }
 
-    function validate(price, customPercent) {
+    function baseDiscountValue() {
+      if (baseDiscountSelect.value === "custom") {
+        return customBaseDiscountInput.value === "" ? NaN : Number(customBaseDiscountInput.value);
+      }
+      return Number(baseDiscountSelect.value);
+    }
+
+    function validate(price, customPercent, basePercent) {
       if (!Number.isFinite(price) || price < 0) {
         return "元値を0円以上の数字で入力してください。";
+      }
+      if (!Number.isFinite(basePercent) || basePercent < 0 || basePercent > 100) {
+        return "店頭表示のオフ率は0〜100の範囲で入力してください。";
       }
       if (customDiscountInput.value !== "" && (!Number.isFinite(customPercent) || customPercent < 0 || customPercent > 100)) {
         return "レジの追加オフ率は0〜100の範囲で入力してください。";
@@ -641,7 +680,7 @@
     }
 
     function selectedOffLabel() {
-      return `${Number(baseDiscountSelect.value)}%オフ`;
+      return `${baseDiscountValue()}%オフ`;
     }
 
     function customPercentValue() {
@@ -649,7 +688,7 @@
     }
 
     function renderTable(price, customPercent) {
-      const selectedPercent = Number(baseDiscountSelect.value);
+      const selectedPercent = baseDiscountValue();
       const rows = Array.from({ length: 9 }, (_, index) => {
         const percent = (index + 1) * 10;
         const displayed = calculateDiscountedPrice(price, percent);
@@ -687,14 +726,14 @@
     function calculate() {
       const price = parsePrice(originalPriceInput.value);
       const customPercent = customPercentValue();
-      const error = validate(price, customPercent);
+      const basePercent = baseDiscountValue();
+      const error = validate(price, customPercent, basePercent);
 
       if (error) {
         message.textContent = error;
         return;
       }
 
-      const basePercent = Number(baseDiscountSelect.value);
       const displayedPrice = calculateDiscountedPrice(price, basePercent);
       const registerPrice = calculateDiscountedPrice(displayedPrice, customPercent);
 
@@ -732,13 +771,14 @@
       if (taxExcludedPriceBeforeConversion === null) return;
       originalPriceInput.value = formatYen(taxExcludedPriceBeforeConversion);
       resetTaxState();
-      taxStatus.textContent = "元値を税込み変換前の価格に戻しました。";
       calculate();
     }
 
     function clearAll() {
       originalPriceInput.value = "";
       baseDiscountSelect.value = "30";
+      customBaseDiscountInput.value = "";
+      customBaseField.hidden = true;
       customDiscountInput.value = "";
       customResult.textContent = "0";
       customLabel.textContent = "30%オフ + 0%オフ";
@@ -771,18 +811,25 @@
     sampleButton.addEventListener("click", () => {
       originalPriceInput.value = "5,980";
       baseDiscountSelect.value = "30";
+      customBaseDiscountInput.value = "";
+      customBaseField.hidden = true;
       customDiscountInput.value = "35";
       resetTaxState();
       calculate();
     });
 
-    baseDiscountSelect.addEventListener("change", calculateIfReady);
+    baseDiscountSelect.addEventListener("change", () => {
+      customBaseField.hidden = baseDiscountSelect.value !== "custom";
+      calculateIfReady();
+    });
+    customBaseDiscountInput.addEventListener("input", calculateIfReady);
     customDiscountInput.addEventListener("input", calculateIfReady);
 
     resultArea.addEventListener("click", (event) => {
       const row = event.target.closest("tr[data-percent]");
       if (!row) return;
       baseDiscountSelect.value = row.dataset.percent;
+      customBaseField.hidden = true;
       calculateIfReady();
     });
 
@@ -792,6 +839,7 @@
       if (!row) return;
       event.preventDefault();
       baseDiscountSelect.value = row.dataset.percent;
+      customBaseField.hidden = true;
       calculateIfReady();
     });
 
