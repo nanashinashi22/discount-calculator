@@ -162,6 +162,12 @@
       align-items: center;
     }
 
+    .tax-buttons {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
     .tax-button {
       min-height: 40px;
       padding: 0 14px;
@@ -175,6 +181,10 @@
       color: white;
       background: var(--accent);
       border-color: var(--accent);
+    }
+
+    .tax-button[hidden] {
+      display: none;
     }
 
     .hint,
@@ -443,6 +453,14 @@
         grid-template-columns: 1fr;
       }
 
+      .tax-buttons {
+        justify-content: stretch;
+      }
+
+      .tax-button {
+        width: 100%;
+      }
+
       .tax-status {
         text-align: left;
       }
@@ -466,7 +484,10 @@
           </div>
           <div class="tax-actions">
             <p class="hint">税抜き価格を入力した場合は、税込みボタンで10%加算できます。</p>
-            <button class="tax-button" type="button" id="taxButton">税込みにする</button>
+            <div class="tax-buttons">
+              <button class="tax-button" type="button" id="taxButton">税込みにする</button>
+              <button class="tax-button" type="button" id="restoreTaxButton" hidden>元値に戻す</button>
+            </div>
           </div>
           <p class="tax-status" id="taxStatus"></p>
         </div>
@@ -554,6 +575,7 @@
     const baseDiscountSelect = document.querySelector("#baseDiscount");
     const customDiscountInput = document.querySelector("#customDiscount");
     const taxButton = document.querySelector("#taxButton");
+    const restoreTaxButton = document.querySelector("#restoreTaxButton");
     const taxStatus = document.querySelector("#taxStatus");
     const customResult = document.querySelector("#customResult");
     const customLabel = document.querySelector("#customLabel");
@@ -567,6 +589,7 @@
 
     const yenFormatter = new Intl.NumberFormat("ja-JP");
     const TAX_RATE = 1.1;
+    let taxExcludedPriceBeforeConversion = null;
 
     function parsePrice(value) {
       const normalized = String(value).replace(/[,\s￥¥円]/g, "");
@@ -596,12 +619,14 @@
     function setTaxButtonConverted(converted, originalTaxExcludedPrice = null) {
       taxButton.classList.toggle("converted", converted);
       taxButton.textContent = converted ? "税込み" : "税込みにする";
+      restoreTaxButton.hidden = !converted;
       taxStatus.textContent = converted && originalTaxExcludedPrice !== null
         ? `税抜き ¥${formatYen(originalTaxExcludedPrice)} を税込みに変換済み`
         : "";
     }
 
     function resetTaxState() {
+      taxExcludedPriceBeforeConversion = null;
       setTaxButtonConverted(false);
     }
 
@@ -698,8 +723,17 @@
       }
 
       const taxIncludedPrice = applyRounding(price * TAX_RATE);
+      taxExcludedPriceBeforeConversion = price;
       originalPriceInput.value = formatYen(taxIncludedPrice);
       setTaxButtonConverted(true, price);
+      calculate();
+    }
+
+    function restoreTaxExcludedPrice() {
+      if (taxExcludedPriceBeforeConversion === null) return;
+      originalPriceInput.value = formatYen(taxExcludedPriceBeforeConversion);
+      resetTaxState();
+      taxStatus.textContent = "元値を税込み変換前の価格に戻しました。";
       calculate();
     }
 
@@ -729,6 +763,7 @@
 
     clearButton.addEventListener("click", clearAll);
     taxButton.addEventListener("click", convertTaxIncluded);
+    restoreTaxButton.addEventListener("click", restoreTaxExcludedPrice);
 
     originalPriceInput.addEventListener("input", () => {
       resetTaxState();
