@@ -155,11 +155,39 @@
       font-weight: 700;
     }
 
-    .hint {
+    .tax-actions {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .tax-button {
+      min-height: 40px;
+      padding: 0 14px;
+      color: var(--accent-dark);
+      background: #e0f3eb;
+      border: 1px solid #cde5da;
+      white-space: nowrap;
+    }
+
+    .tax-button.converted {
+      color: white;
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .hint,
+    .tax-status {
       margin: 0;
       color: var(--muted);
       font-size: 13px;
       line-height: 1.6;
+    }
+
+    .tax-status {
+      text-align: right;
+      font-weight: 700;
     }
 
     .controls {
@@ -410,8 +438,13 @@
         grid-template-columns: 1fr;
       }
 
-      .button-row {
+      .button-row,
+      .tax-actions {
         grid-template-columns: 1fr;
+      }
+
+      .tax-status {
+        text-align: left;
       }
     }
   </style>
@@ -431,7 +464,11 @@
             <input id="originalPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="例: 5980">
             <span class="suffix">円</span>
           </div>
-          <p class="hint">カンマ付き入力にも対応しています。</p>
+          <div class="tax-actions">
+            <p class="hint">税抜き価格を入力した場合は、税込みボタンで10%加算できます。</p>
+            <button class="tax-button" type="button" id="taxButton">税込みにする</button>
+          </div>
+          <p class="tax-status" id="taxStatus"></p>
         </div>
 
         <div class="field">
@@ -516,6 +553,8 @@
     const originalPriceInput = document.querySelector("#originalPrice");
     const baseDiscountSelect = document.querySelector("#baseDiscount");
     const customDiscountInput = document.querySelector("#customDiscount");
+    const taxButton = document.querySelector("#taxButton");
+    const taxStatus = document.querySelector("#taxStatus");
     const customResult = document.querySelector("#customResult");
     const customLabel = document.querySelector("#customLabel");
     const basePriceResult = document.querySelector("#basePriceResult");
@@ -527,6 +566,7 @@
     const sampleButton = document.querySelector("#sampleButton");
 
     const yenFormatter = new Intl.NumberFormat("ja-JP");
+    const TAX_RATE = 1.1;
 
     function parsePrice(value) {
       const normalized = String(value).replace(/[,\s￥¥円]/g, "");
@@ -551,6 +591,18 @@
 
     function formatYen(value) {
       return yenFormatter.format(Math.max(0, value));
+    }
+
+    function setTaxButtonConverted(converted, originalTaxExcludedPrice = null) {
+      taxButton.classList.toggle("converted", converted);
+      taxButton.textContent = converted ? "税込み" : "税込みにする";
+      taxStatus.textContent = converted && originalTaxExcludedPrice !== null
+        ? `税抜き ¥${formatYen(originalTaxExcludedPrice)} を税込みに変換済み`
+        : "";
+    }
+
+    function resetTaxState() {
+      setTaxButtonConverted(false);
     }
 
     function validate(price, customPercent) {
@@ -638,6 +690,19 @@
       return "1円未満を切り捨て";
     }
 
+    function convertTaxIncluded() {
+      const price = parsePrice(originalPriceInput.value);
+      if (!Number.isFinite(price) || price < 0) {
+        message.textContent = "税込みにする税抜き価格を入力してください。";
+        return;
+      }
+
+      const taxIncludedPrice = applyRounding(price * TAX_RATE);
+      originalPriceInput.value = formatYen(taxIncludedPrice);
+      setTaxButtonConverted(true, price);
+      calculate();
+    }
+
     function clearAll() {
       originalPriceInput.value = "";
       baseDiscountSelect.value = "30";
@@ -649,6 +714,7 @@
       summaryText.textContent = "元値を入力して「割引を計算」を押してください。";
       message.textContent = "";
       resultArea.innerHTML = '<div class="empty">1割引から9割引までの価格一覧がここに表示されます。</div>';
+      resetTaxState();
       originalPriceInput.focus();
     }
 
@@ -662,11 +728,17 @@
     });
 
     clearButton.addEventListener("click", clearAll);
+    taxButton.addEventListener("click", convertTaxIncluded);
+
+    originalPriceInput.addEventListener("input", () => {
+      resetTaxState();
+    });
 
     sampleButton.addEventListener("click", () => {
       originalPriceInput.value = "5,980";
       baseDiscountSelect.value = "30";
       customDiscountInput.value = "35";
+      resetTaxState();
       calculate();
     });
 
