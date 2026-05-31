@@ -471,7 +471,7 @@
   <main>
     <header class="app-header">
       <h1>割引計算ツール</h1>
-      <p class="lead">元値から1割引〜9割引までの価格を一覧表示します。店頭で「○割引」と表示された金額から、レジでさらに「○% OFF」になる場合の最終金額も計算できます。</p>
+      <p class="lead">元値から10%オフ〜90%オフまでの価格を一覧表示します。店頭で「○%オフ」と表示された金額から、レジでさらに「○%オフ」になる場合の最終金額も計算できます。</p>
     </header>
 
     <section class="layout" aria-label="割引計算アプリ">
@@ -493,28 +493,28 @@
         </div>
 
         <div class="field">
-          <label for="baseDiscount">店頭表示の割引</label>
+          <label for="baseDiscount">店頭表示のオフ率</label>
           <div class="select-row">
             <select id="baseDiscount">
-              <option value="10">1割引</option>
-              <option value="20">2割引</option>
-              <option value="30" selected>3割引</option>
-              <option value="40">4割引</option>
-              <option value="50">5割引</option>
-              <option value="60">6割引</option>
-              <option value="70">7割引</option>
-              <option value="80">8割引</option>
-              <option value="90">9割引</option>
+              <option value="10">10%オフ</option>
+              <option value="20">20%オフ</option>
+              <option value="30" selected>30%オフ</option>
+              <option value="40">40%オフ</option>
+              <option value="50">50%オフ</option>
+              <option value="60">60%オフ</option>
+              <option value="70">70%オフ</option>
+              <option value="80">80%オフ</option>
+              <option value="90">90%オフ</option>
             </select>
           </div>
           <p class="hint">右の一覧の行を押しても選択できます。</p>
         </div>
 
         <div class="field">
-          <label for="customDiscount">レジでさらに引かれる割引率</label>
+          <label for="customDiscount">レジでさらに引かれるオフ率</label>
           <div class="input-row">
             <input id="customDiscount" type="number" inputmode="decimal" min="0" max="100" step="0.1" placeholder="例: 35">
-            <span class="suffix">%OFF</span>
+            <span class="suffix">%オフ</span>
           </div>
         </div>
 
@@ -540,7 +540,7 @@
         <div class="register" aria-live="polite">
           <div class="register-title">
             <span>最終レジ表示金額</span>
-            <span id="customLabel">3割引 + 0% OFF</span>
+            <span id="customLabel">30%オフ + 0%オフ</span>
           </div>
           <div class="register-value">
             <span class="yen">¥</span>
@@ -563,7 +563,7 @@
           <button class="ghost" type="button" id="sampleButton">サンプル入力</button>
         </div>
         <div class="table-wrap" id="resultArea">
-          <div class="empty">1割引から9割引までの価格一覧がここに表示されます。</div>
+          <div class="empty">10%オフから90%オフまでの価格一覧がここに表示されます。</div>
         </div>
       </section>
     </section>
@@ -635,13 +635,13 @@
         return "元値を0円以上の数字で入力してください。";
       }
       if (customDiscountInput.value !== "" && (!Number.isFinite(customPercent) || customPercent < 0 || customPercent > 100)) {
-        return "レジの追加割引率は0〜100の範囲で入力してください。";
+        return "レジの追加オフ率は0〜100の範囲で入力してください。";
       }
       return "";
     }
 
-    function selectedWariLabel() {
-      return `${Number(baseDiscountSelect.value) / 10}割引`;
+    function selectedOffLabel() {
+      return `${Number(baseDiscountSelect.value)}%オフ`;
     }
 
     function customPercentValue() {
@@ -651,17 +651,16 @@
     function renderTable(price, customPercent) {
       const selectedPercent = Number(baseDiscountSelect.value);
       const rows = Array.from({ length: 9 }, (_, index) => {
-        const wari = index + 1;
-        const percent = wari * 10;
+        const percent = (index + 1) * 10;
         const displayed = calculateDiscountedPrice(price, percent);
         const finalPrice = calculateDiscountedPrice(displayed, customPercent);
         const saved = applyRounding(price - finalPrice);
         const selectedClass = percent === selectedPercent ? " class=\"selected\"" : "";
 
         return `
-          <tr${selectedClass} data-percent="${percent}" tabindex="0" aria-label="${wari}割引を選択">
-            <td><span class="discount-label">${wari}割引</span></td>
-            <td>${percent}% OFF</td>
+          <tr${selectedClass} data-percent="${percent}" tabindex="0" aria-label="${percent}%オフを選択">
+            <td><span class="discount-label">${percent}%オフ</span></td>
+            <td>${percent}%オフ</td>
             <td class="price">¥${formatYen(displayed)}</td>
             <td class="price">¥${formatYen(finalPrice)}</td>
             <td>¥${formatYen(saved)}</td>
@@ -674,7 +673,7 @@
           <thead>
             <tr>
               <th>店頭表示</th>
-              <th>割引率</th>
+              <th>オフ率</th>
               <th>表示価格</th>
               <th>追加後</th>
               <th>合計お得額</th>
@@ -703,9 +702,9 @@
       renderTable(price, customPercent);
       customResult.textContent = formatYen(registerPrice);
       basePriceResult.textContent = `¥${formatYen(displayedPrice)}`;
-      customLabel.textContent = `${selectedWariLabel()} + ${customPercent || 0}% OFF`;
+      customLabel.textContent = `${selectedOffLabel()} + ${customPercent || 0}%オフ`;
       summaryPrice.textContent = `元値 ¥${formatYen(price)}`;
-      summaryText.textContent = `店頭表示価格からレジ割引を追加し、${selectedRoundingLabel()}で計算しています。`;
+      summaryText.textContent = `店頭表示価格からレジの追加オフを適用し、${selectedRoundingLabel()}で計算しています。`;
     }
 
     function selectedRoundingLabel() {
@@ -742,12 +741,12 @@
       baseDiscountSelect.value = "30";
       customDiscountInput.value = "";
       customResult.textContent = "0";
-      customLabel.textContent = "3割引 + 0% OFF";
+      customLabel.textContent = "30%オフ + 0%オフ";
       basePriceResult.textContent = "¥0";
       summaryPrice.textContent = "元値 ¥0";
       summaryText.textContent = "元値を入力して「割引を計算」を押してください。";
       message.textContent = "";
-      resultArea.innerHTML = '<div class="empty">1割引から9割引までの価格一覧がここに表示されます。</div>';
+      resultArea.innerHTML = '<div class="empty">10%オフから90%オフまでの価格一覧がここに表示されます。</div>';
       resetTaxState();
       originalPriceInput.focus();
     }
